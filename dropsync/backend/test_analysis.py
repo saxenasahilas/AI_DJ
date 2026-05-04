@@ -18,7 +18,7 @@ def main():
     print("Analyzing track (this may take a minute depending on network and CPU)...")
     
     try:
-        analysis_result = analyze_track(stream_url)
+        analysis_result = analyze_track(track_info.get("webpage_url"))
         print("\n--- Final Analysis JSON Output ---")
         print(json.dumps(analysis_result, indent=2))
     except Exception as e:

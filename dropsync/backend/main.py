@@ -12,7 +12,7 @@ class SearchRequest(BaseModel):
     query: str
 
 class AnalyzeRequest(BaseModel):
-    stream_url: str
+    webpage_url: str
 
 @app.get("/")
 def read_root():
@@ -24,4 +24,4 @@ def search(req: SearchRequest):
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
-    return analyze_track(req.stream_url)
+    return analyze_track(req.webpage_url)

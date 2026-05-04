@@ -12,6 +12,9 @@ def get_stream_url(query: str) -> dict:
         # Search and extract info
         info = ydl.extract_info(f"ytsearch1:{query}", download=False)
         
+        if not info or ('entries' in info and len(info['entries']) == 0):
+            raise ValueError(f"No results for: {query}")
+
         if 'entries' in info and len(info['entries']) > 0:
             entry = info['entries'][0]
         else:
@@ -19,17 +22,19 @@ def get_stream_url(query: str) -> dict:
             
         stream_url = entry.get('url')
         
-        # If stream_url seems to be the main youtube video URL,
-        # we try to find the actual stream url from the 'formats'
-        if stream_url and "youtube.com/watch" in stream_url:
-            for f in entry.get('formats', []):
-                # Look for an audio-only format
-                if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                    stream_url = f.get('url')
-                    break
+        formats = entry.get('formats', [])
+        audio_formats = [
+            f for f in formats
+            if f.get('acodec') != 'none' and f.get('vcodec') == 'none'
+        ]
+        if audio_formats:
+            # Pick highest quality audio-only
+            best = max(audio_formats, key=lambda f: f.get('abr') or 0)
+            stream_url = best.get('url')
                     
         return {
             "url": stream_url,
+            "webpage_url": entry.get('webpage_url', ''),
             "title": entry.get('title', 'Unknown Title'),
             "duration": entry.get('duration', 0),
             "thumbnail": entry.get('thumbnail', '')

@@ -1,33 +1,48 @@
+import yt_dlp
 import librosa
 import numpy as np
 import tempfile
-import urllib.request
-import shutil
 import os
 
-def analyze_track(stream_url: str) -> dict:
+def analyze_track(webpage_url: str) -> dict:
     """
-    Analyzes an audio stream from a given URL and returns its features.
-    Features include BPM, beat grids, energy curves, phrase boundaries, and drop candidates.
+    Accepts a YouTube watch URL (webpage_url from fetcher).
+    Downloads audio via yt-dlp properly, analyzes with Librosa.
     """
-    # 1. Download to a temporary file
-    # We use a user agent because some raw URLs might block default urllib agents
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.m4a')
-    req = urllib.request.Request(
-        stream_url,
-        headers={'User-Agent': 'Mozilla/5.0'}
-    )
-    
+    temp_dir = tempfile.mkdtemp()
+    temp_path = os.path.join(temp_dir, 'audio')
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': temp_path + '.%(ext)s',
+        'quiet': True,
+        'noplaylist': True,
+    }
+
     try:
-        with urllib.request.urlopen(req) as response:
-            with open(temp_file.name, 'wb') as out_file:
-                shutil.copyfileobj(response, out_file)
-        
-        # Load audio using librosa (using 22050 Hz for performance and standard analysis)
-        y, sr = librosa.load(temp_file.name, sr=22050)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([webpage_url])
+
+        # Find the downloaded file (extension varies — m4a, webm, opus)
+        downloaded = [
+            os.path.join(temp_dir, f)
+            for f in os.listdir(temp_dir)
+            if f.startswith('audio.')
+        ]
+        if not downloaded:
+            raise FileNotFoundError("yt-dlp downloaded nothing")
+
+        audio_file = downloaded[0]
+        y, sr = librosa.load(audio_file, sr=22050)
+
     finally:
-        if os.path.exists(temp_file.name):
-            os.unlink(temp_file.name)
+        # Clean up temp files
+        for f in os.listdir(temp_dir):
+            try:
+                os.unlink(os.path.join(temp_dir, f))
+            except:
+                pass
+        os.rmdir(temp_dir)
 
     # 2. Extract BPM and Beats
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
