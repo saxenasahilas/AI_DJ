@@ -1,50 +1,49 @@
-import yt_dlp
 import librosa
 import numpy as np
 import tempfile
+import urllib.request
+import shutil
 import os
 
-def analyze_track(webpage_url: str) -> dict:
-    """
-    Accepts a YouTube watch URL (webpage_url from fetcher).
-    Downloads audio via yt-dlp properly, analyzes with Librosa.
-    """
-    temp_dir = tempfile.mkdtemp()
-    temp_path = os.path.join(temp_dir, 'audio')
+MOCK_MODE = os.getenv("MOCK_MODE", "true").lower() == "true"
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': temp_path + '.%(ext)s',
-        'quiet': True,
-        'noplaylist': True,
-        'cookiefile': 'cookies.txt',
-        'extractor_args': {'youtube': {'player_client': ['web']}},
-    }
+def analyze_track(stream_url: str) -> dict:
+    if MOCK_MODE:
+        return {
+            "bpm": 128.0,
+            "bpm_confidence": 0.85,
+            "key": "F#",
+            "beats": [0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
+            "downbeats": [0.5, 2.5, 4.5],
+            "phrase_boundaries": [16.5, 32.5, 64.5],
+            "energy_curve": [0.2, 0.5, 0.8, 0.9, 0.3],
+            "mood": "energetic",
+            "danceability": 0.88,
+            "drop_candidates": [32.5, 64.5]
+        }
 
+    """
+    Analyzes an audio stream from a given URL and returns its features.
+    Features include BPM, beat grids, energy curves, phrase boundaries, and drop candidates.
+    """
+    # 1. Download to a temporary file
+    # We use a user agent because some raw URLs might block default urllib agents
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.m4a')
+    req = urllib.request.Request(
+        stream_url,
+        headers={'User-Agent': 'Mozilla/5.0'}
+    )
+    
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([webpage_url])
-
-        # Find the downloaded file (extension varies — m4a, webm, opus)
-        downloaded = [
-            os.path.join(temp_dir, f)
-            for f in os.listdir(temp_dir)
-            if f.startswith('audio.')
-        ]
-        if not downloaded:
-            raise FileNotFoundError("yt-dlp downloaded nothing")
-
-        audio_file = downloaded[0]
-        y, sr = librosa.load(audio_file, sr=22050)
-
+        with urllib.request.urlopen(req) as response:
+            with open(temp_file.name, 'wb') as out_file:
+                shutil.copyfileobj(response, out_file)
+        
+        # Load audio using librosa (using 22050 Hz for performance and standard analysis)
+        y, sr = librosa.load(temp_file.name, sr=22050)
     finally:
-        # Clean up temp files
-        for f in os.listdir(temp_dir):
-            try:
-                os.unlink(os.path.join(temp_dir, f))
-            except:
-                pass
-        os.rmdir(temp_dir)
+        if os.path.exists(temp_file.name):
+            os.unlink(temp_file.name)
 
     # 2. Extract BPM and Beats
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
