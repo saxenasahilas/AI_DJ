@@ -31,7 +31,10 @@ def analyze_track(stream_url: str) -> dict:
 
     # 2. Extract BPM and Beats
     onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-    tempo, beat_frames = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
+    tempo, beat_frames = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr, units='frames')
+    
+    # Confidence can be estimated from onset strength at beat positions
+    bpm_confidence = float(np.mean(onset_env[beat_frames]) / np.max(onset_env)) if len(beat_frames) > 0 else 0.5
     
     # Harmonic correction for BPM
     bpm = float(tempo[0]) if isinstance(tempo, np.ndarray) else float(tempo)
@@ -69,10 +72,10 @@ def analyze_track(stream_url: str) -> dict:
             if rms[i] == np.min(rms[local_start:local_end]):
                 boundary_time = rms_times[i]
                 
-                # Filter to only boundaries that align with a downbeat timestamp (within 0.2s)
+                # Filter to only boundaries that align with a downbeat timestamp (within 0.5s)
                 if len(downbeats) > 0:
                     nearest_downbeat = min(downbeats, key=lambda d: abs(d - boundary_time))
-                    if abs(nearest_downbeat - boundary_time) <= 0.2:
+                    if abs(nearest_downbeat - boundary_time) <= 0.5:
                         phrase_boundaries.append(nearest_downbeat)
 
     phrase_boundaries = sorted(list(set(phrase_boundaries)))  # Unique phrase boundaries
@@ -113,12 +116,12 @@ def analyze_track(stream_url: str) -> dict:
     elif np.max(energy_curve) > 0.8:
         mood = "aggressive"
     else:
-        mood = "neutral"
+        mood = "melancholic"
 
     return {
         "bpm": float(round(bpm, 2)),
-        "bpm_confidence": 0.92,  # Fixed high confidence for this MVP logic
-        "key": f"{key} minor",   # Placeholder assumption for mode
+        "bpm_confidence": float(round(bpm_confidence, 2)),
+        "key": key,
         "beats": [float(round(b, 2)) for b in beat_times],
         "downbeats": [float(round(d, 2)) for d in downbeats],
         "phrase_boundaries": [float(round(p, 2)) for p in phrase_boundaries],
