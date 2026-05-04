@@ -2,8 +2,6 @@ fastapi
 uvicorn
 yt-dlp
 librosa
-essentia
-spleeter
 numpy
 anthropic
 python-dotenv
