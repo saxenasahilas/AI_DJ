@@ -17,7 +17,7 @@ def analyze_track(webpage_url: str) -> dict:
         'outtmpl': temp_path + '.%(ext)s',
         'quiet': True,
         'noplaylist': True,
-        'cookiesfrombrowser': ('chrome',),
+        'cookiefile': 'cookies.txt',
         'extractor_args': {'youtube': {'player_client': ['web']}},
     }
 
