@@ -2,6 +2,7 @@ import json
 from fetcher import get_stream_url
 from analyzer import analyze_track
 from dj_algo import find_crossfade_point, plan_drops, score_next_track
+from brain import pick_next_track, plan_set_local
 
 def main():
     query = "Diljit Dosanjh Lover"
@@ -36,6 +37,25 @@ def main():
 
         print("\n--- Next Track Score ---")
         print(score_next_track(track_a, track_b, vibe_mode="club", position_in_set=0.4))
+
+        queue = [
+            {**track_b, "title": "Pasoori"},
+            {**track_a, "bpm": 118.0, "title": "Tum Se Hi", "mood": "calm"},
+            {**track_b, "bpm": 135.0, "title": "Excuses", "mood": "energetic"}
+        ]
+
+        print("\n--- Next Track Pick ---")
+        pick = pick_next_track(track_a, queue, vibe_mode="sangeet", position_in_set=0.3)
+        print(json.dumps(pick, indent=2))
+
+        print("\n--- Set Plan (Local) ---")
+        plan = plan_set_local(
+            [track_a, track_b] + queue,
+            vibe_mode="baaraat",
+            duration_minutes=45,
+            event_context="Baaraat procession, outdoor, 300 guests, Bareilly UP"
+        )
+        print(json.dumps(plan, indent=2))
     except Exception as e:
         print(f"Error during analysis: {e}")
 
