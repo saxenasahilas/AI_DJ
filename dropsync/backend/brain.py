@@ -25,9 +25,17 @@ def pick_next_track(
             "model": "mistral",
             "prompt": prompt,
             "stream": False
-        })
+        }, timeout=30.0)
+        
         result_text = response.json()["response"]
-        return json.loads(result_text)
+        
+        if "```json" in result_text:
+            result_text = result_text.split("```json")[1].split("```")[0]
+        elif "```" in result_text:
+            result_text = result_text.split("```")[1].split("```")[0]
+            
+        result_text = result_text[result_text.find('{'):result_text.rfind('}')+1]
+        return json.loads(result_text.strip())
     except Exception as e:
         if queue:
             return queue[0]
@@ -49,20 +57,22 @@ def plan_set_local(tracks, vibe_mode, duration_minutes, event_context):
     set_arc, drop_script, singalong_tracks, total_duration_estimate
     """
     
-    response = httpx.post("http://localhost:11434/api/generate", json={
-        "model": "llama3.1",
-        "prompt": prompt,
-        "stream": False
-    })
-    
     try:
+        response = httpx.post("http://localhost:11434/api/generate", json={
+            "model": "llama3.1",
+            "prompt": prompt,
+            "stream": False
+        }, timeout=30.0)
+        
         result_text = response.json()["response"]
+        
         # Basic cleanup in case Ollama wraps the JSON in markdown blocks
         if "```json" in result_text:
             result_text = result_text.split("```json")[1].split("```")[0]
         elif "```" in result_text:
             result_text = result_text.split("```")[1].split("```")[0]
             
+        result_text = result_text[result_text.find('{'):result_text.rfind('}')+1]
         return json.loads(result_text.strip())
     except Exception as e:
-        return {"error": str(e), "raw_response": response.json().get("response", "")}
+        return {"error": str(e)}
